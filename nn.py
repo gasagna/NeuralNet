@@ -17,23 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__doc__ = """A module for feed-forward neural networks.
-
-Summary of function and classes
-===============================
-
-.. currentmodule:: pyhd.nn
-
-.. autosummary::
-   :toctree: generated
-   
-   pyhd.nn.sigmoid
-   pyhd.nn.MultiLayerPerceptron
-   
-API reference
-=============
-"""
-
 import numpy as np
 
 def sigmoid(x, beta=1):
@@ -74,19 +57,20 @@ class MultiLayerPerceptron( ):
         
         Parameters
         ----------
-        arch : list
+        arch : list of integers
             a list containing the number of neurons in each layer
             including the input and output layers.
             
         eta : float, default=0.5
             the initial learning rate used in the training of the network
             
-        sigma : standard deviation of the gaussian distribution from which 
+        sigma : float, default = 0.1
+            standard deviation of the gaussian distribution from which 
             the intial values of the network weights are sampled.
             
         Attributes
         ----------
-        arch : list
+        arch : list of integers
             a list containing the number of neurons in each layer
             including the input and output layers.
         
@@ -108,17 +92,14 @@ class MultiLayerPerceptron( ):
             then ``net.weights[0].shape`` is ``(10, 6)``, etc, ...
             
             
-        Returns
-        -------
-        net : a MultiLayerPerceptron object
-        
-        
         Examples
         --------
         To define a network with 2 input units, 1 hidden layer
         with 4 units and a single output unit give:
         
-        >>> net = pyhd.nn.MultiLayerPerceptron( arch=[2, 4, 1] )
+        
+        >>> import nn
+        >>> net = nn.MultiLayerPerceptron( arch=[2, 4, 1] )
         
         Weights are initially set to small random values:
         
@@ -174,6 +155,10 @@ class MultiLayerPerceptron( ):
         output : np.ndarray
         a two dimensions array with shape ``(n_samples, net.arch[-1])``
         """
+        
+        # check shape of the data
+        self._check_inputs( inputs )
+        
         # add biases values 
         hidden = np.c_[ inputs, -np.ones(inputs.shape[0]) ]
 
@@ -245,8 +230,16 @@ class MultiLayerPerceptron( ):
             whether to print some debugging information at each epoch.
         
         """
+        
+        # check shape of the data
+        self._check_inputs( inputs )
+        self._check_targets( targets )
+        
         err = self.error( inputs, targets )
         deltas = [ None ] * ( self.n_layers - 1 )
+        
+        # save errors at each iteration to plot convergence history
+        err_save = np.zeros( (n_iterations,) )
         
         # repeat the training
         for n in xrange( n_iterations ):
@@ -261,16 +254,19 @@ class MultiLayerPerceptron( ):
             for i in range( self.n_hidden ): 
             # j is an index which go backwards
                 j = -( i+1 )
-                deltas[ j-1 ] = self._hidden[j] * ( 1.0 - self._hidden[j] ) *  np.dot( deltas[j], self.weights[j].T )
+                deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
         
             # update weights
             for i in range( self.n_layers - 2 ):
-                self.weights[i] -= self.eta * np.dot( deltas[i][:,:-1].T, self._hidden[i] ).T / inputs.shape[0]
+                self.weights[i] -= self.eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
 
             # update outputs weights
             a, b = deltas[-1].T, self._hidden[-1]
             self.weights[-1] -= self.eta * np.dot( a, b ).T / inputs.shape[0]
 
+            # save error
+            err_save[n] = err
+            
             err_old = err            
             err = self.error( inputs, targets )
             
@@ -284,6 +280,20 @@ class MultiLayerPerceptron( ):
             
             if verbose:
                 print "%5d %14.12f %8.5f" % (n, err, self.eta)
+                
+        return err_save
+                
+    def _check_inputs( self, inputs ):
+        """Check that the shape (dimensionality) of the inputs
+        is correct with respect to the   network architecture."""
+        if inputs.shape[1] != self.arch[0]:
+            raise ValueError( 'inputs shape is inconsistent with number of input nodes.' )
+            
+    def _check_targets( self, targets ):
+        """Check that the shape (dimensionality) of the targets
+        is correct with respect to the   network architecture."""
+        if targets.shape[1] != self.arch[-1]:
+            raise ValueError( 'targets shape is inconsistent with number of output nodes.' )
 
     def error( self, inputs, targets ):
         """Compute the sum of squared error of the network.
