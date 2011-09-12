@@ -176,31 +176,6 @@ class MultiLayerPerceptron( ):
             
         # compute output
         return np.dot( hidden, self.weights[-1] )
-        
-    def earlystopping( self, inputs, targets, valid, validtargets, n_iterations=100, max_reps=100, eps=1e-2 ):
-        """
-        """
-        old_val_error = 100.00001
-        new_val_error = 100.00000
-        
-        for i in xrange(max_reps):
-            
-            # train network for some epochs
-            self.train( inputs, targets, n_iterations=n_iterations, verbose=False)
-            
-            # compute new errors
-            trainout = self.forward( inputs )
-            validout = self.forward( valid )
-            trainerror = self.error( inputs, targets )
-            
-            old_val_error = new_val_error
-            new_val_error = self.error( valid, validtargets )
-            
-            print " %d %14.12f %14.12f %s " % ( i, trainerror, new_val_error, '+' and new_val_error>old_val_error or '-'   )
-            if new_val_error-old_val_error > eps:
-                break
-           
-        print "Stopped after %d epochs" % (i*n_iterations)
 
     def train ( self, inputs, targets, n_iterations=100, etol=1e-6, verbose=True ):
         """Train the network using the back-propagation algorithm.
@@ -277,9 +252,11 @@ class MultiLayerPerceptron( ):
             
             if err > err_old:
                 self.eta /= 1.001
+            else:
+                self.eta *= 1.00001
             
             if verbose:
-                print "%5d %14.12f %8.5f" % (n, err, self.eta)
+                print "%5d %6.3e %8.5f" % (n, err, self.eta)
                 
         return err_save
                 
@@ -320,11 +297,3 @@ class MultiLayerPerceptron( ):
             the error of the network
         """
         return np.mean( (self.forward( inputs ) - targets)**2 )
-
-def normalize_set( inputs, targets ):
-    """
-    """
-    inputs  = ( inputs - inputs.mean(axis=0) ) / inputs.std(axis=0)
-    targets = ( targets - targets.mean(axis=0) ) / targets.std(axis=0)
-    
-    return inputs, targets
