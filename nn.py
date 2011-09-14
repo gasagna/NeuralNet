@@ -195,7 +195,7 @@ class MultiLayerPerceptron( ):
         
         targets  :   np.ndarray
             the target data of the training set. Must be a two dimensions array
-            with shape equal to ``(n_samples, net.arch[0])``.        
+            with shape equal to ``(n_samples, net.arch[-1])``.        
         
         n_iterations : int, default=100
             the number of epochs of the training. All the input samples
