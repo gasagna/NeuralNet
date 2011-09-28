@@ -135,10 +135,18 @@ class MultiLayerPerceptron( ):
         self.weights = [ ]
 
         # init the weigths to small values
-        for i in range( self.n_layers - 1 ):
+        for i in xrange( self.n_layers - 1 ):
             size = arch[i] + 1 , arch[i+1]
             self.weights.append( np.random.normal(0, sigma, size) )
 
+    def save( self, filename ):
+        """Save net to a file."""
+        pickle.dump( self.weights, open(filename) )
+        
+    def load( self, filename ):
+        """Load net from a file."""
+        self.weights = pickle.load(open(filename))
+    
     def forward ( self, inputs ):
         """Compute network output.
         
@@ -167,7 +175,7 @@ class MultiLayerPerceptron( ):
        
         # for each layer except the output, compute activation
         #  adding the biases as necessary
-        for i in range( self.n_layers - 2 ):
+        for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
             hidden = sigmoid( hidden )
             hidden = np.c_[ hidden, -np.ones( hidden.shape[0] ) ]
@@ -226,13 +234,13 @@ class MultiLayerPerceptron( ):
             deltas[-1] = ( o - targets )
 
             # calculate deltas, for each hidden unit
-            for i in range( self.n_hidden ): 
+            for i in xrange( self.n_hidden ): 
             # j is an index which go backwards
                 j = -( i+1 )
                 deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
         
             # update weights
-            for i in range( self.n_layers - 2 ):
+            for i in xrange( self.n_layers - 2 ):
                 self.weights[i] -= self.eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
 
             # update outputs weights
