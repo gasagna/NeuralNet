@@ -33,7 +33,7 @@ def sigmoid(x, beta=1):
     x : float
     
     beta : float, default=1
-      a parameters determining the steepness of the curve in :math:`x=0`
+      a parameter determining the steepness of the curve in :math:`x=0`
       
     Returns
     -------
@@ -271,12 +271,16 @@ class MultiLayerPerceptron( ):
     def _check_inputs( self, inputs ):
         """Check that the shape (dimensionality) of the inputs
         is correct with respect to the   network architecture."""
+        if not inputs.ndim == 2:
+            raise ValueError( 'inputs should be a two dimensions array.' )
         if inputs.shape[1] != self.arch[0]:
             raise ValueError( 'inputs shape is inconsistent with number of input nodes.' )
             
     def _check_targets( self, targets ):
         """Check that the shape (dimensionality) of the targets
         is correct with respect to the   network architecture."""
+        if not targets.ndim == 2:
+            raise ValueError( 'inputs should be a two dimensions array.' )
         if targets.shape[1] != self.arch[-1]:
             raise ValueError( 'targets shape is inconsistent with number of output nodes.' )
 
