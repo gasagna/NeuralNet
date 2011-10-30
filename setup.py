@@ -1,5 +1,4 @@
 from distutils.core import setup, Extension
-import numpy as np
 
 setup( name = "nn",
        author = "Davide Lasagna",
@@ -7,6 +6,6 @@ setup( name = "nn",
        license = "GPL",
        url = 'https://github.com/gasagna/NeuralNet',
        version = "0.0.1",
-       description = "A feed-forward multi-layer Neural network in pure python.",
+       description = "A feed-forward multi-layer Neural Network in pure Python.",
        py_modules = ['nn']
        )
