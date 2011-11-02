@@ -52,7 +52,7 @@ class MultiLayerPerceptron( ):
     the Back-Propagation algorithm.
     """
     
-    def __init__ ( self, arch, eta=0.5, sigma=0.1 ):
+    def __init__ ( self, arch, eta=0.5, b=0.1, beta=1 ):
         """Create a neural network.
         
         Parameters
@@ -64,8 +64,8 @@ class MultiLayerPerceptron( ):
         eta : float, default=0.5
             the initial learning rate used in the training of the network
             
-        sigma : float, default = 0.1
-            standard deviation of the gaussian distribution from which 
+        b : float, default = 0.1
+            left/right limits of the uniform distribution from which 
             the intial values of the network weights are sampled.
             
         Attributes
@@ -126,6 +126,7 @@ class MultiLayerPerceptron( ):
         # the architecture of the network. 
         self.arch = arch
         self.eta = eta
+        self.beta = beta
         self.n_layers = len(arch)
         self.n_hidden = len(arch) - 2
         
@@ -137,7 +138,7 @@ class MultiLayerPerceptron( ):
         # init the weigths to small values
         for i in xrange( self.n_layers - 1 ):
             size = arch[i] + 1 , arch[i+1]
-            self.weights.append( np.random.normal(0, sigma, size) )
+            self.weights.append( np.random.uniform(-b, b, size) )
 
     def save( self, filename ):
         """Save net to a file."""
@@ -177,7 +178,7 @@ class MultiLayerPerceptron( ):
         #  adding the biases as necessary
         for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
-            hidden = sigmoid( hidden )
+            hidden = sigmoid( hidden, self.beta )
             hidden = np.c_[ hidden, -np.ones( hidden.shape[0] ) ]
             
             self._hidden.append( hidden )
@@ -259,9 +260,9 @@ class MultiLayerPerceptron( ):
                 break
             
             if err > err_old:
-                self.eta /= 1.001
+                self.eta /= 1.1
             else:
-                self.eta *= 1.00001
+                self.eta *= 1.01
             
             if verbose:
                 print "%5d %6.3e %8.5f" % (n, err, self.eta)
