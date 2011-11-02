@@ -183,7 +183,7 @@ class MultiLayerPerceptron( ):
         # compute output
         return np.dot( hidden, self.weights[-1] )
 
-    def train ( self, inputs, targets, n_iterations=100, etol=1e-6, verbose=True ):
+    def train ( self, inputs, targets, eta, n_iterations=100, etol=1e-6, verbose=True ):
         """Train the network using the back-propagation algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
