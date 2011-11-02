@@ -211,6 +211,10 @@ class MultiLayerPerceptron( ):
         n_iterations : int, default=100
             the number of epochs of the training. All the input samples
             are presented to the network this number of times.
+
+        etol : float, default = 1e-6
+            training is stopped if difference between the error at successive 
+            epochs is less than this value.
         
         verbose : bool, default is True
             whether to print some debugging information at each epoch.
