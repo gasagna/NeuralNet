@@ -67,17 +67,15 @@ class MultiLayerPerceptron( ):
         b : float, default = 0.1
             left/right limits of the uniform distribution from which 
             the intial values of the network weights are sampled.
+
+        beta : float, default = 1
+            steepness of the sigmoidal function in ``x=0``
             
         Attributes
         ----------
         arch : list of integers
             a list containing the number of neurons in each layer
             including the input and output layers.
-        
-        eta : float
-            the initial learning rate used in the training of the network.
-            The learning rate decreases over time, when fluctuations
-            occur in the mean square error  of the network.
         
         n_layers : int
             the number of layers, including input and output layers
@@ -125,7 +123,6 @@ class MultiLayerPerceptron( ):
         """
         # the architecture of the network. 
         self.arch = arch
-        self.eta = eta
         self.beta = beta
         self.n_layers = len(arch)
         self.n_hidden = len(arch) - 2
@@ -205,7 +202,12 @@ class MultiLayerPerceptron( ):
         targets  :   np.ndarray
             the target data of the training set. Must be a two dimensions array
             with shape equal to ``(n_samples, net.arch[-1])``.        
-        
+
+        eta : float
+            the initial learning rate used in the training of the network.
+            The learning rate decreases over time, when fluctuations
+            occur in the mean square error  of the network.        
+
         n_iterations : int, default=100
             the number of epochs of the training. All the input samples
             are presented to the network this number of times.
@@ -242,11 +244,11 @@ class MultiLayerPerceptron( ):
         
             # update weights
             for i in xrange( self.n_layers - 2 ):
-                self.weights[i] -= self.eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+                self.weights[i] -= eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
 
             # update outputs weights
             a, b = deltas[-1].T, self._hidden[-1]
-            self.weights[-1] -= self.eta * np.dot( a, b ).T / inputs.shape[0]
+            self.weights[-1] -= eta * np.dot( a, b ).T / inputs.shape[0]
 
             # save error
             err_save[n] = err
