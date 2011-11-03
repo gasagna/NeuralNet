@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
+import cPickle as pickle
 
 def sigmoid(x, beta=1):
     """Sigmoid activation function.
@@ -139,11 +140,11 @@ class MultiLayerPerceptron( ):
 
     def save( self, filename ):
         """Save net to a file."""
-        pickle.dump( self.weights, open(filename) )
+        pickle.dump( self.weights, open(filename, 'w') )
         
     def load( self, filename ):
         """Load net from a file."""
-        self.weights = pickle.load(open(filename))
+        self.weights = pickle.load(open(filename, 'r'))
     
     def forward ( self, inputs ):
         """Compute network output.
