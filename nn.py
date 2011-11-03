@@ -183,7 +183,7 @@ class MultiLayerPerceptron( ):
         # compute output
         return np.dot( hidden, self.weights[-1] )
 
-    def train ( self, inputs, targets, eta, n_iterations=100, etol=1e-6, verbose=True ):
+    def train ( self, inputs, targets, eta, alpha=0.9, n_iterations=100, etol=1e-6, verbose=True, k=0.01 ):
         """Train the network using the back-propagation algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -230,6 +230,9 @@ class MultiLayerPerceptron( ):
         
         # save errors at each iteration to plot convergence history
         err_save = np.zeros( (n_iterations,) )
+
+        # initialize weights at previous step
+        d_weights_old = [ np.zeros_like(w) for w in self.weights ]
         
         # repeat the training
         for n in xrange( n_iterations ):
@@ -248,16 +251,17 @@ class MultiLayerPerceptron( ):
         
             # update weights
             for i in xrange( self.n_layers - 2 ):
-                self.weights[i] -= eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+                d_weights_old[i] = alpha*d_weights_old[i] + eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+                self.weights[i] -= d_weights_old[i]
 
             # update outputs weights
-            a, b = deltas[-1].T, self._hidden[-1]
-            self.weights[-1] -= eta * np.dot( a, b ).T / inputs.shape[0]
+            d_weights_old[-1] = alpha*d_weights_old[-1] + eta * np.dot( deltas[-1].T, self._hidden[-1] ).T / inputs.shape[0]
+            self.weights[-1] -= d_weights_old[-1]
 
             # save error
             err_save[n] = err
             
-            err_old = err            
+            err_old = err
             err = self.error( inputs, targets )
             
             if np.abs(err - err_old) < etol:
@@ -266,12 +270,12 @@ class MultiLayerPerceptron( ):
                 break
             
             if err > err_old:
-                self.eta /= 1.1
+                eta /= 1 + k 
             else:
-                self.eta *= 1.01
-            
+                eta *= 1 + float(k) / 10
+           
             if verbose:
-                print "%5d %6.3e %8.5f" % (n, err, self.eta)
+                print "%5d %6.3e %8.5f" % (n, err, eta)
                 
         return err_save
                 
