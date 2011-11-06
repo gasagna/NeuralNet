@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import cPickle as pickle
+import numexpr as ne
 
 def sigmoid(x, beta=1):
     """Sigmoid activation function.
@@ -41,7 +42,7 @@ def sigmoid(x, beta=1):
     s : float
       the value of the sigmoid activation function
     """
-    return 1.0 / ( 1 + np.exp(-beta*x))
+    return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
 
 class MultiLayerPerceptron( ):
     """A Multi Layer Perceptron feed-forward neural network.
