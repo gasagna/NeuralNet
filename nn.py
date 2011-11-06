@@ -185,7 +185,7 @@ class MultiLayerPerceptron( ):
         # compute output
         return np.dot( hidden, self.weights[-1] )
 
-    def train ( self, inputs, targets, eta, alpha=0.9, n_iterations=100, etol=1e-6, verbose=True, k=0.01 ):
+    def train_backprop ( self, inputs, targets, eta, alpha=0.9, n_iterations=100, etol=1e-6, verbose=True, k=0.01 ):
         """Train the network using the back-propagation algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -281,6 +281,90 @@ class MultiLayerPerceptron( ):
                 
         return err_save
                 
+
+    def train_quickprop ( self, inputs, targets, n_iterations=100, etol=1e-6, verbose=True ):
+        """Train the network using the quickprop algorithm.
+        
+        Training is performed in batch mode, i.e. all input samples are presented 
+        to the network before an update of the weights is computed.
+        
+        
+        Parameters
+        ----------
+        inputs  :   np.ndarray
+            the input data of the training set. Must be a two dimensions array 
+            with shape equal to ``(n_samples, net.arch[0])``.
+        
+        targets  :   np.ndarray
+            the target data of the training set. Must be a two dimensions array
+            with shape equal to ``(n_samples, net.arch[-1])``.        
+
+        n_iterations : int, default=100
+            the number of epochs of the training. All the input samples
+            are presented to the network this number of times.
+
+        etol : float, default = 1e-6
+            training is stopped if difference between the error at successive 
+            epochs is less than this value.
+        
+        verbose : bool, default is True
+            whether to print some debugging information at each epoch.
+        
+        """
+        
+        # check shape of the data
+        self._check_inputs( inputs )
+        self._check_targets( targets )
+
+        # initialize deltas list        
+        deltas = [ None ] * ( self.n_layers - 1 )
+        
+        # save errors at each iteration to plot convergence history
+        err_save = np.zeros( n_iterations )
+        err_save[0] = self.error( inputs, targets )
+
+        # initialize weights at previous step
+        d_weights_old = [ np.zeros_like(w) for w in self.weights ]
+        S_old = [ np.zeros_like(w) for w in self.weights ]
+        
+        # repeat the training for a certain amount of epochs
+        for n in xrange( 1, n_iterations+1 ):
+
+            # compute output                
+            o = self.forward( inputs )
+
+            # compute output delta term
+            deltas[-1] = ( o - targets )
+
+            # calculate deltas, for each hidden unit
+            for i in xrange( self.n_hidden ): 
+                # j is an index which goes backwards
+                j = -( i+1 )
+                deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
+        
+            # update weights using quickprop algorithm 
+            for i in xrange( self.n_layers - 1 ):
+                S = np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+                self.weights[i] = S / (S_old[i] - S) * d_weights_old[i]
+
+                # keep track of error derivative at previous step
+                S_old[i] = S
+
+            # save error
+            err_save[n] = self.error( inputs, targets )
+                                
+            if np.abs(err_save[n] - err_save[n-1]) < etol:
+                if verbose:
+                    print "Minimum variation of error reached. Stopping training."
+                break
+           
+            # print state information
+            if verbose:
+                print "%5d %6.3e" % (n, err_save[n] )
+                
+        return err_save
+
+
     def _check_inputs( self, inputs ):
         """Check that the shape (dimensionality) of the inputs
         is correct with respect to the   network architecture."""
