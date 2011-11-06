@@ -231,13 +231,14 @@ class MultiLayerPerceptron( ):
         deltas = [ None ] * ( self.n_layers - 1 )
         
         # save errors at each iteration to plot convergence history
-        err_save = np.zeros( (n_iterations,) )
+        err_save = np.zeros( n_iterations+1 )
+        err_save[0] = self.error( inputs, targets )
 
         # initialize weights at previous step
         d_weights_old = [ np.zeros_like(w) for w in self.weights ]
         
         # repeat the training
-        for n in xrange( n_iterations ):
+        for n in xrange( 1, n_iterations+1 ):
 
             # compute output                
             o = self.forward( inputs )
@@ -252,32 +253,25 @@ class MultiLayerPerceptron( ):
                 deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
         
             # update weights
-            for i in xrange( self.n_layers - 2 ):
+            for i in xrange( self.n_layers - 1 ):
                 d_weights_old[i] = alpha*d_weights_old[i] + eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
                 self.weights[i] -= d_weights_old[i]
 
-            # update outputs weights
-            d_weights_old[-1] = alpha*d_weights_old[-1] + eta * np.dot( deltas[-1].T, self._hidden[-1] ).T / inputs.shape[0]
-            self.weights[-1] -= d_weights_old[-1]
-
             # save error
-            err_save[n] = err
+            err_save[n] = self.error( inputs, targets )
             
-            err_old = err
-            err = self.error( inputs, targets )
-            
-            if np.abs(err - err_old) < etol:
+            if np.abs(err_save[n] - err_save[n-1]) < etol:
                 if verbose:
                     print "Minimum variation of error reached. Stopping training."
                 break
             
-            if err > err_old:
+            if err_save[n] > err_save[n-1]:
                 eta /= 1 + k 
             else:
                 eta *= 1 + float(k) / 10
            
             if verbose:
-                print "%5d %6.3e %8.5f" % (n, err, eta)
+                print "%5d %6.3e %8.5f" % (n, err_save[n], eta)
                 
         return err_save
                 
