@@ -252,13 +252,9 @@ class MultiLayerPerceptron( ):
                 deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
         
             # update weights
-            for i in xrange( self.n_layers - 2 ):
+            for i in xrange( self.n_layers - 1 ):
                 d_weights_old[i] = alpha*d_weights_old[i] + eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
                 self.weights[i] -= d_weights_old[i]
-
-            # update outputs weights
-            d_weights_old[-1] = alpha*d_weights_old[-1] + eta * np.dot( deltas[-1].T, self._hidden[-1] ).T / inputs.shape[0]
-            self.weights[-1] -= d_weights_old[-1]
 
             # save error
             err_save[n] = err
@@ -282,7 +278,7 @@ class MultiLayerPerceptron( ):
         return err_save
                 
 
-    def train_quickprop ( self, inputs, targets, n_iterations=100, etol=1e-6, verbose=True ):
+    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, eta=0.1, etol=1e-6, verbose=True ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -320,7 +316,7 @@ class MultiLayerPerceptron( ):
         deltas = [ None ] * ( self.n_layers - 1 )
         
         # save errors at each iteration to plot convergence history
-        err_save = np.zeros( n_iterations )
+        err_save = np.zeros( n_iterations+1 )
         err_save[0] = self.error( inputs, targets )
 
         # initialize weights at previous step
@@ -342,21 +338,43 @@ class MultiLayerPerceptron( ):
                 j = -( i+1 )
                 deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
         
-            # update weights using quickprop algorithm 
-            for i in xrange( self.n_layers - 1 ):
-                S = np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
-                self.weights[i] = S / (S_old[i] - S) * d_weights_old[i]
 
-                # keep track of error derivative at previous step
+            for i in xrange( self.n_layers - 1 ):
+                # compute error derivative 
+                S = np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+
+                if n == 1:
+                    # perform conventional backpropagation at first interation to ignite quick propagation algorithm
+                    d_weights = ne.evaluate("eta * S")
+    
+                else:
+                    # use quickprop algorithm 
+                    #sold = S_old[i]    
+                    #dwo = d_weights_old[i]
+                    #d_weights = ne.evaluate( "S / ( sold - S ) * dwo" )
+                    d_weights =  S / ( S_old[i] - S ) * d_weights_old[i]
+    
+                    # check that we do not make a too large step
+                    d_weights = np.where( np.abs(d_weights) > np.abs(mu*d_weights_old[i]), mu*d_weights_old[i], d_weights )
+
+                    # check that we do not go backwards
+                    #d_weights = np.where( np.sign(d_weights) != np.sign(d_weights_old[i]), mu*d_weights_old[i], d_weights )
+
+                # update weights
+                self.weights[i] -= d_weights
+
+                # keep track of stuff at previous step
                 S_old[i] = S
+                d_weights_old[i] = d_weights
+
 
             # save error
             err_save[n] = self.error( inputs, targets )
                                 
-            if np.abs(err_save[n] - err_save[n-1]) < etol:
-                if verbose:
-                    print "Minimum variation of error reached. Stopping training."
-                break
+            #if np.abs(err_save[n] - err_save[n-1]) < etol:
+            #    if verbose:
+            #        print "Minimum variation of error reached. Stopping training."
+            #    break
            
             # print state information
             if verbose:
