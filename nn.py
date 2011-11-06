@@ -154,13 +154,13 @@ class MultiLayerPerceptron( ):
         Parameters
         ----------
         inputs  :   np.ndarray
-        must be a two dimensions array with shape equal to 
-        ``(n_samples, net.arch[0])``.
+            must be a two dimensions array with shape equal to 
+            ``(n_samples, net.arch[0])``.
         
         Returns
         ------- 
         output : np.ndarray
-        a two dimensions array with shape ``(n_samples, net.arch[-1])``
+            a two dimensions array with shape ``(n_samples, net.arch[-1])``
         """
         
         # check shape of the data
