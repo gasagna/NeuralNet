@@ -44,6 +44,11 @@ def sigmoid(x, beta=1):
     """
     return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
 
+
+def load_net_from_file( filename ):
+        """Load net from a file."""
+        return pickle.load(open(filename, 'r'))
+
 class MultiLayerPerceptron( ):
     """A Multi Layer Perceptron feed-forward neural network.
     
@@ -141,12 +146,8 @@ class MultiLayerPerceptron( ):
 
     def save( self, filename ):
         """Save net to a file."""
-        pickle.dump( self.weights, open(filename, 'w') )
+        pickle.dump( self, open(filename, 'w') )
         
-    def load( self, filename ):
-        """Load net from a file."""
-        self.weights = pickle.load(open(filename, 'r'))
-    
     def forward ( self, inputs ):
         """Compute network output.
         
