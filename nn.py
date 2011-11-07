@@ -20,6 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import cPickle as pickle
 import numexpr as ne
+import copy
+import sys
 
 def _myhstack(a,b):
     """Stack two arrays side by side"""
@@ -153,7 +155,9 @@ class MultiLayerPerceptron( ):
 
     def save( self, filename ):
         """Save net to a file."""
-        pickle.dump( self, open(filename, 'w') )
+        clone = copy.copy( self )
+        del clone._hidden
+        pickle.dump( clone, open(filename, 'w') )
         
     def forward ( self, inputs ):
         """Compute network output.
@@ -279,8 +283,13 @@ class MultiLayerPerceptron( ):
                 eta *= 1 + float(k) / 10
            
             if verbose:
-                print "%5d %6.3e %8.5f" % (n, err_save[n], eta)
-                
+                sys.stdout.write( '\b'*55 )
+                sys.stdout.write( "iteration %5d - MSE = %6.6e - eta = %8.5f" % (n, err_save[n], eta) )
+                sys.stdout.flush()
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+               
         return err_save
                 
     def _check_inputs( self, inputs ):
