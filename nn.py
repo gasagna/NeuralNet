@@ -21,6 +21,13 @@ import numpy as np
 import cPickle as pickle
 import numexpr as ne
 
+def _myhstack(a,b):
+    """Stack two arrays side by side"""
+    c = np.empty( (a.shape[0], a.shape[1]+b.shape[1]) )
+    c[:,:a.shape[1]] = a
+    c[:,a.shape[1]:] = b
+    return c
+
 def sigmoid(x, beta=1):
     """Sigmoid activation function.
     
@@ -169,7 +176,7 @@ class MultiLayerPerceptron( ):
         self._check_inputs( inputs )
         
         # add biases values 
-        hidden = np.c_[ inputs, -np.ones(inputs.shape[0]) ]
+        hidden = _myhstack( inputs, -np.ones((inputs.shape[0],1)) )
 
         # keep track of the forward operations
         self._hidden = [ hidden ]
@@ -179,7 +186,7 @@ class MultiLayerPerceptron( ):
         for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
             hidden = sigmoid( hidden, self.beta )
-            hidden = np.c_[ hidden, -np.ones( hidden.shape[0] ) ]
+            hidden = _myhstack( hidden, -np.ones( (hidden.shape[0],1) ) )
             
             self._hidden.append( hidden )
             
