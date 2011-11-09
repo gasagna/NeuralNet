@@ -7,6 +7,7 @@ from nn import MultiLayerPerceptron
 
 
 # load data from file
+print "Loading data file"
 u = np.loadtxt('sample-data.txt')
 
 # remove mean value from data
@@ -16,13 +17,13 @@ u -= u.mean()
 #########################
 # Neural network stuff
 # number of input nodes
-Ni = 50
+Ni = 100
 
 # number of hidden nodes
-Nh = 10
+Nh = 30
 
 # number of output nodes
-No = 50
+No = 100
 
 # architecture of the net
 arch = [Ni, Nh, No]
@@ -34,8 +35,9 @@ arch = [Ni, Nh, No]
 u_pack = u[:(Ni+No)*(len(u)/(Ni+No))].reshape( -1, Ni+No )
 
 # only train over a fraction of the complete data set
-frac = 0.1
+frac = 1
 n_samples = int( frac * u_pack.shape[0] )
+print "Starting training over %d samples" % n_samples
 
 # so use the first n_samples to train the net
 idx = np.arange( n_samples  )
@@ -45,20 +47,19 @@ inputs  = u_pack[idx, :Ni]
 targets = u_pack[idx, Ni:].reshape(-1,No)
 
 
-
 # create neural network
-net = MultiLayerPerceptron( arch, eta=0.6, sigma=1 )
+net = MultiLayerPerceptron( arch, beta=1, b=1 )
 
-# train it. If Ctrl+c is pressed during the training stop it
+# train it. If Ctrl+c is pressed during the training, stop it.
 try:
-    net.train( inputs, targets, n_iterations=1000000, etol=1e-18 )
+    net.train_quickprop( inputs, targets, mu=1.6, n_iterations=1000000, etol=1e-180 )
 except KeyboardInterrupt:
     pass
 
 # plot some results
 n = 2
 fig = figure( figsize=(15,8))
-plt.subplots_adjust(left=0.05, right=0.96, hspace=0.2, wspace=0.15)
+#plt.subplots_adjust(left=0.05, right=0.96, hspace=0.2, wspace=0.15)
 for i in range( n**2 ):
     ax = fig.add_subplot( n, n, i+1 )
         
@@ -67,7 +68,7 @@ for i in range( n**2 ):
     
     if i in [2,3]:
         xlabel('time step')
-    if i in [0, 1]:
+    if i in [0, 2]:
         ylabel('u [m/s]')
     ylim(-0.4, 0.4)
     grid(1)
