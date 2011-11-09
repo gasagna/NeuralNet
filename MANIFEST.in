@@ -1,0 +1,5 @@
+include examples/function.py
+include examples/predict-time-history.py
+include examples/sample-data.txt
+include examples/training-algorithms.py
+
