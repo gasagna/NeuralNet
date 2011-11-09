@@ -4,19 +4,40 @@ from pylab import *
 
 # create a dataset
 x = np.linspace(-1,1,1000)
+
+# generate some random noise with specified variance
+sigma = 0.1
+
 # we want to learn this function using a neural network
-y = np.exp(x)*np.sin(5*x) + np.random.normal(0,0.1,1000)
+y = np.exp(x)*np.sin(10*x) + np.random.normal(0,sigma,1000)
 
 # create a neural network object
-net = nn.MultiLayerPerceptron( arch=[1,5,1], beta=1, b=1 )
-
+net_bp = nn.MultiLayerPerceptron( arch=[1,10,1], beta=1, b=1 )
 # train it using standard backpropagation with momentum
-err_bp = net.train_backprop(x.reshape(-1,1), y.reshape(-1,1), n_iterations=20000, eta=0.8, alpha=0.8, etol=1e-12 )
+err_bp = net_bp.train_backprop(x.reshape(-1,1), y.reshape(-1,1), n_iterations=4000, eta=0.8, alpha=0.8, etol=1e-16 )
 
 # train it using quickprop
-err_qp = net.train_quickprop(x.reshape(-1,1), y.reshape(-1,1), n_iterations=20000, mu=1, etol=1e-12 )
+net_qp = nn.MultiLayerPerceptron( arch=[1,10,1], beta=1, b=1 )
+err_qp = net_qp.train_quickprop(x.reshape(-1,1), y.reshape(-1,1), n_iterations=4000, mu=1.6, etol=1e-16 )
 
 # plot the result
-loglog( err_bp, label='BP')
-loglog( err_qp, label='QP')
+figure( figsize=(10,7))
+title('Convergence properties of standard back propagation and quick propagation')
+loglog( err_bp, label='Back Propagation')
+loglog( err_qp, label='Quick Propagation')
+axhline(sigma**2, label='simulated random noise variance', color='k')
+legend()
+xlabel('number of epochs')
+ylabel('mean square error')
+ylim(0.5 * sigma**2, 1e2)
+grid()
+
+figure()
+title('Network prediction and actual data')
+plot( x, y, 'b.')
+plot( x, net_bp.forward(x.reshape(-1,1)).ravel(), label='Back Propagation', color='r', ls='-', lw=2)
+plot( x, net_qp.forward(x.reshape(-1,1)).ravel(), label='Quick Propagation', color='g', ls='-', lw=2 )
+grid()
+xlabel('x')
+ylabel('y(x)')
 show()
