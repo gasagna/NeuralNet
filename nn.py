@@ -284,7 +284,7 @@ class MultiLayerPerceptron( ):
            
             if verbose:
                 sys.stdout.write( '\b'*55 )
-                sys.stdout.write( "iteration %5d - MSE = %6.6e - eta = %8.5f" % (n, err_save[n], eta) )
+                sys.stdout.write( "Epoch %5d - MSE = %6.6e - eta = %8.5f" % (n, err_save[n], eta) )
                 sys.stdout.flush()
 
         sys.stdout.write('\n')
@@ -293,7 +293,7 @@ class MultiLayerPerceptron( ):
         return err_save
                 
 
-    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, eta=0.1, etol=1e-6, verbose=True ):
+    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, verbose=True ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -358,22 +358,19 @@ class MultiLayerPerceptron( ):
                 # compute error derivative 
                 S = np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
 
-                if n == 1:
+                if n < 10:
                     # perform conventional backpropagation at first interation to ignite quick propagation algorithm
-                    d_weights = ne.evaluate("eta * S")
+                    d_weights = ne.evaluate("0.01 * S")
     
                 else:
                     # use quickprop algorithm 
                     #sold = S_old[i]    
                     #dwo = d_weights_old[i]
                     #d_weights = ne.evaluate( "S / ( sold - S ) * dwo" )
-                    d_weights =  S / ( S_old[i] - S ) * d_weights_old[i]
+                    d_weights =  mu * S / np.abs(S_old[i] - S) * np.abs(d_weights_old[i])
     
                     # check that we do not make a too large step
                     d_weights = np.where( np.abs(d_weights) > np.abs(mu*d_weights_old[i]), mu*d_weights_old[i], d_weights )
-
-                    # check that we do not go backwards
-                    #d_weights = np.where( np.sign(d_weights) != np.sign(d_weights_old[i]), mu*d_weights_old[i], d_weights )
 
                 # update weights
                 self.weights[i] -= d_weights
@@ -385,15 +382,21 @@ class MultiLayerPerceptron( ):
 
             # save error
             err_save[n] = self.error( inputs, targets )
-                                
-            #if np.abs(err_save[n] - err_save[n-1]) < etol:
-            #    if verbose:
-            #        print "Minimum variation of error reached. Stopping training."
-            #    break
+            
+            # break if we are close to the minimum
+            if np.abs(err_save[n] - err_save[n-1]) < etol:
+                if verbose:
+                    print "Minimum variation of error reached. Stopping training."
+                break
            
             # print state information
             if verbose:
-                print "%5d %6.3e" % (n, err_save[n] )
+                sys.stdout.write( '\b'*55 )
+                sys.stdout.write( "Epoch %5d - MSE = %6.6e" % (n, err_save[n]) )
+                sys.stdout.flush()
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
                 
         return err_save
 
