@@ -298,8 +298,7 @@ class MultiLayerPerceptron( ):
         
         Training is performed in batch mode, i.e. all input samples are presented 
         to the network before an update of the weights is computed.
-        
-        
+                
         Parameters
         ----------
         inputs  :   np.ndarray
@@ -321,8 +320,13 @@ class MultiLayerPerceptron( ):
         verbose : bool, default is True
             whether to print some debugging information at each epoch.
         
+        References
+        ----------
+        [1] Neural Processing Letters 12: 159-169, 2000.
+        Globally Convergent Modification of the Quickprop Method
+        MICHAEL N. VRAHATIS, GEORGE D. MAGOULAS and VASSILIS P. PLAGIANAKOS
+       
         """
-        
         # check shape of the data
         self._check_inputs( inputs )
         self._check_targets( targets )
@@ -364,9 +368,6 @@ class MultiLayerPerceptron( ):
     
                 else:
                     # use quickprop algorithm 
-                    #sold = S_old[i]    
-                    #dwo = d_weights_old[i]
-                    #d_weights = ne.evaluate( "S / ( sold - S ) * dwo" )
                     d_weights =  mu * S / np.abs(S_old[i] - S) * np.abs(d_weights_old[i])
     
                     # check that we do not make a too large step
