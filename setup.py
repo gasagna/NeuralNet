@@ -5,7 +5,7 @@ setup( name = "nn",
        author_email = "davide.lasagna@polito.it",
        license = "GPL",
        url = 'https://github.com/gasagna/NeuralNet',
-       version = "0.0.1",
+       version = "0.1",
        description = "A feed-forward multi-layer Neural Network in pure Python.",
        py_modules = ['nn']
        )
