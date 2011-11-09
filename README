@@ -1,8 +1,7 @@
 A simple, pure python implementation of 
 a Feed-Forward Neural Network, trained with
-the back-propagation algorithm. This code was
+the quick-propagation algorithm. This code was
 written for a course project and was then
 released under the GPL licence. 
-
 
 Please use it as you like, and leave some feedback!
