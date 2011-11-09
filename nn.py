@@ -20,6 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import cPickle as pickle
 import numexpr as ne
+import copy
+import sys
+
+def _myhstack(a,b):
+    """Stack two arrays side by side"""
+    c = np.empty( (a.shape[0], a.shape[1]+b.shape[1]) )
+    c[:,:a.shape[1]] = a
+    c[:,a.shape[1]:] = b
+    return c
 
 def sigmoid(x, beta=1):
     """Sigmoid activation function.
@@ -43,6 +52,11 @@ def sigmoid(x, beta=1):
       the value of the sigmoid activation function
     """
     return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
+
+
+def load_net_from_file( filename ):
+        """Load net from a file."""
+        return pickle.load(open(filename, 'r'))
 
 class MultiLayerPerceptron( ):
     """A Multi Layer Perceptron feed-forward neural network.
@@ -141,12 +155,10 @@ class MultiLayerPerceptron( ):
 
     def save( self, filename ):
         """Save net to a file."""
-        pickle.dump( self.weights, open(filename, 'w') )
+        clone = copy.copy( self )
+        del clone._hidden
+        pickle.dump( clone, open(filename, 'w') )
         
-    def load( self, filename ):
-        """Load net from a file."""
-        self.weights = pickle.load(open(filename, 'r'))
-    
     def forward ( self, inputs ):
         """Compute network output.
         
@@ -168,7 +180,7 @@ class MultiLayerPerceptron( ):
         self._check_inputs( inputs )
         
         # add biases values 
-        hidden = np.c_[ inputs, -np.ones(inputs.shape[0]) ]
+        hidden = _myhstack( inputs, -np.ones((inputs.shape[0],1)) )
 
         # keep track of the forward operations
         self._hidden = [ hidden ]
@@ -178,7 +190,7 @@ class MultiLayerPerceptron( ):
         for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
             hidden = sigmoid( hidden, self.beta )
-            hidden = np.c_[ hidden, -np.ones( hidden.shape[0] ) ]
+            hidden = _myhstack( hidden, -np.ones( (hidden.shape[0],1) ) )
             
             self._hidden.append( hidden )
             
@@ -231,13 +243,14 @@ class MultiLayerPerceptron( ):
         deltas = [ None ] * ( self.n_layers - 1 )
         
         # save errors at each iteration to plot convergence history
-        err_save = np.zeros( (n_iterations,) )
+        err_save = np.zeros( n_iterations+1 )
+        err_save[0] = self.error( inputs, targets )
 
         # initialize weights at previous step
         d_weights_old = [ np.zeros_like(w) for w in self.weights ]
         
         # repeat the training
-        for n in xrange( n_iterations ):
+        for n in xrange( 1, n_iterations+1 ):
 
             # compute output                
             o = self.forward( inputs )
@@ -257,24 +270,26 @@ class MultiLayerPerceptron( ):
                 self.weights[i] -= d_weights_old[i]
 
             # save error
-            err_save[n] = err
+            err_save[n] = self.error( inputs, targets )
             
-            err_old = err
-            err = self.error( inputs, targets )
-            
-            if np.abs(err - err_old) < etol:
+            if np.abs(err_save[n] - err_save[n-1]) < etol:
                 if verbose:
                     print "Minimum variation of error reached. Stopping training."
                 break
             
-            if err > err_old:
+            if err_save[n] > err_save[n-1]:
                 eta /= 1 + k 
             else:
                 eta *= 1 + float(k) / 10
            
             if verbose:
-                print "%5d %6.3e %8.5f" % (n, err, eta)
-                
+                sys.stdout.write( '\b'*55 )
+                sys.stdout.write( "iteration %5d - MSE = %6.6e - eta = %8.5f" % (n, err_save[n], eta) )
+                sys.stdout.flush()
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+               
         return err_save
                 
 
