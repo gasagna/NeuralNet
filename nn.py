@@ -293,7 +293,7 @@ class MultiLayerPerceptron( ):
         return err_save
                 
 
-    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, verbose=True ):
+    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, epoch_between_reports=1  ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -317,8 +317,8 @@ class MultiLayerPerceptron( ):
             training is stopped if difference between the error at successive 
             epochs is less than this value.
         
-        verbose : bool, default is True
-            whether to print some debugging information at each epoch.
+        epoch_between_reports : int, default = 0
+            number of debug messages regarding training status which are skipped.
         
         References
         ----------
@@ -381,20 +381,23 @@ class MultiLayerPerceptron( ):
                 d_weights_old[i] = d_weights
 
 
-            # save error
-            err_save[n] = self.error( inputs, targets )
-            
-            # break if we are close to the minimum
-            if np.abs(err_save[n] - err_save[n-1]) < etol:
-                if verbose:
-                    print "Minimum variation of error reached. Stopping training."
-                break
-           
-            # print state information
-            if verbose:
+            # debug message
+            if n % epoch_between_reports == 0 and n >= epoch_between_reports :
+                # compute error
+                err_save[n] = self.error( inputs, targets )
+                # print state information
                 sys.stdout.write( '\b'*55 )
                 sys.stdout.write( "Epoch %5d - MSE = %6.6e" % (n, err_save[n]) )
                 sys.stdout.flush()
+                
+                # break if we are close to the minimum
+                if np.abs(err_save[n] - err_save[n-1]) < etol:
+                    print "Minimum variation of error reached. Stopping training."
+                    break
+            else:
+                err_save[n] = err_save[n-1]
+            
+                       
 
         sys.stdout.write('\n')
         sys.stdout.flush()
