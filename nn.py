@@ -68,7 +68,7 @@ class MultiLayerPerceptron( ):
     the Back-Propagation algorithm.
     """
     
-    def __init__ ( self, arch, eta=0.5, b=0.1, beta=1 ):
+    def __init__ ( self, arch, eta=0.5, b=0.1, beta=1, n_threads=1 ):
         """Create a neural network.
         
         Parameters
@@ -142,6 +142,7 @@ class MultiLayerPerceptron( ):
         self.beta = beta
         self.n_layers = len(arch)
         self.n_hidden = len(arch) - 2
+        ne.set_num_threads(n_threads)
         
         # a list of arrays containing the weight of each layer
         # e.g. if arch = [ 2, 5, 1 ] then 
@@ -234,7 +235,6 @@ class MultiLayerPerceptron( ):
             whether to print some debugging information at each epoch.
         
         """
-        
         # check shape of the data
         self._check_inputs( inputs )
         self._check_targets( targets )
@@ -293,7 +293,7 @@ class MultiLayerPerceptron( ):
         return err_save
                 
 
-    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, epoch_between_reports=1  ):
+    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1  ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -317,8 +317,8 @@ class MultiLayerPerceptron( ):
             training is stopped if difference between the error at successive 
             epochs is less than this value.
         
-        epoch_between_reports : int, default = 0
-            number of debug messages regarding training status which are skipped.
+        epoch_between_reports : int, default = 1
+            report error every # of epochs
         
         References
         ----------
@@ -327,6 +327,7 @@ class MultiLayerPerceptron( ):
         MICHAEL N. VRAHATIS, GEORGE D. MAGOULAS and VASSILIS P. PLAGIANAKOS
        
         """
+        
         # check shape of the data
         self._check_inputs( inputs )
         self._check_targets( targets )
@@ -355,14 +356,15 @@ class MultiLayerPerceptron( ):
             for i in xrange( self.n_hidden ): 
                 # j is an index which goes backwards
                 j = -( i+1 )
-                deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
-        
+                a = self._hidden[j][:,:-1]
+                b = np.dot( deltas[j], self.weights[j][:-1].T )
+                deltas[ j-1 ] = a*(1-a)*b
 
             for i in xrange( self.n_layers - 1 ):
                 # compute error derivative 
                 S = np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
 
-                if n < 10:
+                if n < 2:
                     # perform conventional backpropagation at first interation to ignite quick propagation algorithm
                     d_weights = ne.evaluate("0.01 * S")
     
@@ -382,7 +384,7 @@ class MultiLayerPerceptron( ):
 
 
             # debug message
-            if n % epoch_between_reports == 0 and n >= epoch_between_reports :
+            if n % epochs_between_reports == 0 and n >= epochs_between_reports :
                 # compute error
                 err_save[n] = self.error( inputs, targets )
                 # print state information
