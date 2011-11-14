@@ -366,7 +366,7 @@ class MultiLayerPerceptron( ):
 
                 if n < 2:
                     # perform conventional backpropagation at first interation to ignite quick propagation algorithm
-                    d_weights = ne.evaluate("0.01 * S")
+                    d_weights = 0.01 * S
     
                 else:
                     # use quickprop algorithm 
