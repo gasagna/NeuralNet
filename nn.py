@@ -53,7 +53,6 @@ def sigmoid(x, beta=1):
     """
     return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
 
-
 def load_net_from_file( filename ):
         """Load net from a file."""
         return pickle.load(open(filename, 'r'))
@@ -67,7 +66,7 @@ class MultiLayerPerceptron( ):
     layer has a bias node. The network is trained using 
     the Back-Propagation algorithm.
     """
-    
+
     def __init__ ( self, arch, eta=0.5, b=0.1, beta=1, n_threads=1 ):
         """Create a neural network.
         
@@ -159,7 +158,7 @@ class MultiLayerPerceptron( ):
         clone = copy.copy( self )
         del clone._hidden
         pickle.dump( clone, open(filename, 'w') )
-        
+
     def forward ( self, inputs ):
         """Compute network output.
         
@@ -291,7 +290,6 @@ class MultiLayerPerceptron( ):
         sys.stdout.flush()
                
         return err_save
-                
 
     def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1  ):
         """Train the network using the quickprop algorithm.
@@ -406,7 +404,6 @@ class MultiLayerPerceptron( ):
                 
         return err_save
 
-
     def _check_inputs( self, inputs ):
         """Check that the shape (dimensionality) of the inputs
         is correct with respect to the   network architecture."""
@@ -414,7 +411,7 @@ class MultiLayerPerceptron( ):
             raise ValueError( 'inputs should be a two dimensions array.' )
         if inputs.shape[1] != self.arch[0]:
             raise ValueError( 'inputs shape is inconsistent with number of input nodes.' )
-            
+
     def _check_targets( self, targets ):
         """Check that the shape (dimensionality) of the targets
         is correct with respect to the   network architecture."""
