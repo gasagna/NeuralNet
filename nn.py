@@ -303,7 +303,7 @@ class MultiLayerPerceptron( ):
         # compute output
         return np.dot( hidden, self.weights[-1] )
 
-    def train_backprop ( self, training_set, validation_set=None, eta=0.5, alpha=0.5, n_iterations=100, etol=1e-6, verbose=True, k=0.01 ):
+    def train_backprop ( self, training_set, validation_set=None, eta=0.5, alpha=0.5, n_iterations=100, etol=1e-6, verbose=True, k=0.01, max_ratio=0.9 ):
         """Train the network using the back-propagation algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -348,7 +348,11 @@ class MultiLayerPerceptron( ):
             If the error is decreasing the learning parameter is increased 
             as``eta *= 1 + k/10``, if it is increasing the learning parameter 
             is decreased as ``eta /= 1 + k``.
-        
+            
+        max_ratio : float, default=0.9
+            the minimum ratio between the mean square errors of the training and
+            validation set allowed. If the ratio is less than this number the net 
+            is not generalizing well, and training should is stopped.
         """
         # check shape of the data
         self._check_dataset( training_set )
@@ -399,12 +403,6 @@ class MultiLayerPerceptron( ):
             if np.abs(err_save[n] - err_save[n-1]) < etol:
                 print "Minimum variation of error reached. Stopping training."
                 break
-                
-            # stop training if validation error is growing too much
-            # look at the last 5 errors. if they are all increaing stop training.
-            if validation_set:
-                if np.all( np.diff(err_val_save[n-5:n]) > 0):
-                    break
             
             # check error behaviour and change learning parameter
             if err_save[n] > err_save[n-1]:
@@ -422,11 +420,24 @@ class MultiLayerPerceptron( ):
                     err_val_sign = '(+)'
                 elif err_val_save[n] <= err_val_save[n-1]:
                     err_val_sign = '(-)'
+        
+            # stop training if training error is decreasing too much
+            # with respect to the validation error
+            if validation_set:
+                if n > 15:
+                    # ratio  between errors of the two sets
+                    err_ratio = np.max( err_save[n-15:n]/err_val_save[n-15:n] )
+                    if err_ratio < max_ratio:
+                        sys.stdout.write("\nStopping training to avoid overfitting\n")
+                        sys.stdout.flush()
+                        break
+                else:
+                    err_ratio = 1
             
             # print state information
             if validation_set:
-                sys.stdout.write( '\b'*68 )
-                sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s; MSE-val = %6.6e%s" % (n, err_save[n], err_tr_sign, err_val_save[n], err_val_sign) )
+                sys.stdout.write( '\b'*79 )
+                sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s; MSE-val = %6.6e%s; ratio=%.4f" % (n, err_save[n], err_tr_sign, err_val_save[n], err_val_sign, err_ratio) )
             else:
                 sys.stdout.write( '\b'*68 )
                 sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s" % (n, err_save[n], err_tr_sign) )
@@ -437,7 +448,7 @@ class MultiLayerPerceptron( ):
                
         return err_save
 
-    def train_quickprop ( self, training_set, validation_set=None, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1 ):
+    def train_quickprop ( self, training_set, validation_set=None, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1, max_ratio=0.9 ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -462,6 +473,11 @@ class MultiLayerPerceptron( ):
         
         epoch_between_reports : int, default = 1
             report error every # of epochs
+            
+        max_ratio : float, default=0.9
+            the minimum ratio between the mean square errors of the training and
+            validation set allowed. If the ratio is less than this number the net 
+            is not generalizing well, and training should is stopped.
         
         References
         ----------
@@ -534,6 +550,7 @@ class MultiLayerPerceptron( ):
 
             # debug message
             if n % epochs_between_reports == 0 and n >= epochs_between_reports :
+                
                 # compute error
                 err_save[n] = self.error( training_set )
                 if validation_set:
@@ -550,10 +567,23 @@ class MultiLayerPerceptron( ):
                     elif err_val_save[n] <= err_val_save[n-1]:
                         err_val_sign = '(-)'
                 
+                # stop training if training error is decreasing too much
+                # with respect to the validation error
+                if validation_set:
+                    if n > 15:
+                        # ratio  between errors of the two sets
+                        err_ratio = np.max( err_save[n-15:n]/err_val_save[n-15:n] )
+                        if err_ratio < max_ratio:
+                            sys.stdout.write("\nStopping training to avoid overfitting\n")
+                            sys.stdout.flush()
+                            break
+                    else:
+                        err_ratio = 1
+                
                 # print state information
                 if validation_set:
-                    sys.stdout.write( '\b'*68 )
-                    sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s; MSE-val = %6.6e%s" % (n, err_save[n], err_tr_sign, err_val_save[n], err_val_sign) )
+                    sys.stdout.write( '\b'*79 )
+                    sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s; MSE-val = %6.6e%s; ratio=%.4f" % (n, err_save[n], err_tr_sign, err_val_save[n], err_val_sign, err_ratio) )
                 else:
                     sys.stdout.write( '\b'*68 )
                     sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s" % (n, err_save[n], err_tr_sign) )
@@ -564,12 +594,7 @@ class MultiLayerPerceptron( ):
                     print "Minimum variation of error reached. Stopping training."
                     break
                 
-                # stop training if validation error is growing too much
-                # look at the last 5 errors. if they are all increaing stop training.
-                if validation_set:
-                    if np.all( np.diff(err_val_save[n-5:n]) > 0):
-                        break
-                    
+                   
             else:
                 err_save[n] = err_save[n-1]
                 if validation_set:
