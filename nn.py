@@ -261,7 +261,7 @@ class MultiLayerPerceptron( ):
         # compute output
         return np.dot( hidden, self.weights[-1] )
 
-    def train_backprop ( self, inputs, targets, eta, alpha=0.9, n_iterations=100, etol=1e-6, verbose=True, k=0.01 ):
+    def train_backprop ( self, training_set, validation_set=None, eta=0.5, alpha=0.5, n_iterations=100, etol=1e-6, verbose=True, k=0.01 ):
         """Train the network using the back-propagation algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -273,18 +273,22 @@ class MultiLayerPerceptron( ):
         
         Parameters
         ----------
-        inputs  :   np.ndarray
-            the input data of the training set. Must be a two dimensions array 
-            with shape equal to ``(n_samples, net.arch[0])``.
-        
-        targets  :   np.ndarray
-            the target data of the training set. Must be a two dimensions array
-            with shape equal to ``(n_samples, net.arch[-1])``.        
-
-        eta : float
+        training_set : instance of :py:class:`nn.Dataset` class
+            the keep the inputs and the targets used to train the network
+                
+        validation_set : instance of :py:class:`nn.Dataset` class
+            the set of inputs/targets used to  validate the network training.
+            If it is None, no validation is performed.
+            
+        eta : float, default=0.5
             the initial learning rate used in the training of the network.
             The learning rate decreases over time, when fluctuations
             occur in the mean square error  of the network.        
+            
+        alpha : float, default=0.5
+            the momentum constant of the momentum term in the backpropagation
+            algorithm. Must be between 0 and 1. If set to 0 no momentum
+            is used.
 
         n_iterations : int, default=100
             the number of epochs of the training. All the input samples
@@ -296,18 +300,30 @@ class MultiLayerPerceptron( ):
         
         verbose : bool, default is True
             whether to print some debugging information at each epoch.
+            
+        k : float
+            a number defining the rate of change of the learning parameter ``eta``.
+            If the error is decreasing the learning parameter is increased 
+            as``eta *= 1 + k/10``, if it is increasing the learning parameter 
+            is decreased as ``eta /= 1 + k``.
         
         """
         # check shape of the data
-        self._check_inputs( inputs )
-        self._check_targets( targets )
-        
-        err = self.error( inputs, targets )
+        self._check_dataset( training_set )
+        if validation_set:
+            self._check_dataset( validation_set )
+
+        # initialize deltas 
         deltas = [ None ] * ( self.n_layers - 1 )
         
         # save errors at each iteration to plot convergence history
         err_save = np.zeros( n_iterations+1 )
-        err_save[0] = self.error( inputs, targets )
+        err_save[0] = self.error( training_set )
+        
+        # save also error over the validation set, if needed
+        if validation_set:
+            err_val_save = np.zeros( n_iterations+1 )
+            err_val_save[0] = self.error( validation_set )
 
         # initialize weights at previous step
         d_weights_old = [ np.zeros_like(w) for w in self.weights ]
@@ -316,10 +332,10 @@ class MultiLayerPerceptron( ):
         for n in xrange( 1, n_iterations+1 ):
 
             # compute output                
-            o = self._forward_train( inputs )
+            o = self._forward_train( training_set )
 
             # compute output delta term
-            deltas[-1] = ( o - targets )
+            deltas[-1] = ( o - training_set.targets )
 
             # calculate deltas, for each hidden unit
             for i in xrange( self.n_hidden ): 
@@ -329,26 +345,50 @@ class MultiLayerPerceptron( ):
         
             # update weights
             for i in xrange( self.n_layers - 1 ):
-                d_weights_old[i] = alpha*d_weights_old[i] + eta * np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+                d_weights_old[i] = alpha*d_weights_old[i] + eta * np.dot( deltas[i].T, self._hidden[i] ).T / training_set.n_samples
                 self.weights[i] -= d_weights_old[i]
 
             # save error
-            err_save[n] = self.error( inputs, targets )
-            
+            err_save[n] = self.error( training_set )
+            if validation_set:
+               err_val_save[n] = self.error( validation_set )
+                
+            # break if we are close to the minimum
             if np.abs(err_save[n] - err_save[n-1]) < etol:
-                if verbose:
-                    print "Minimum variation of error reached. Stopping training."
+                print "Minimum variation of error reached. Stopping training."
                 break
+                
+            # stop training if validation error is growing too much
+            # look at the last 5 errors. if they are all increaing stop training.
+            if validation_set:
+                if np.all( np.diff(err_val_save[n-5:n]) > 0):
+                    break
             
+            # check error behaviour and change learning parameter
             if err_save[n] > err_save[n-1]:
                 eta /= 1 + k 
             else:
                 eta *= 1 + float(k) / 10
            
-            if verbose:
-                sys.stdout.write( '\b'*55 )
-                sys.stdout.write( "Epoch %5d - MSE = %6.6e - eta = %8.5f" % (n, err_save[n], eta) )
-                sys.stdout.flush()
+            # compute if error is growing or decreasing
+            if err_save[n] >  err_save[n-1]:
+                err_tr_sign = '(+)'
+            elif err_save[n] <= err_save[n-1]:
+                err_tr_sign = '(-)'
+            if validation_set:
+                if err_val_save[n]  > err_val_save[n-1]:
+                    err_val_sign = '(+)'
+                elif err_val_save[n] <= err_val_save[n-1]:
+                    err_val_sign = '(-)'
+            
+            # print state information
+            if validation_set:
+                sys.stdout.write( '\b'*68 )
+                sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s; MSE-val = %6.6e%s" % (n, err_save[n], err_tr_sign, err_val_save[n], err_val_sign) )
+            else:
+                sys.stdout.write( '\b'*68 )
+                sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s" % (n, err_save[n], err_tr_sign) )
+            sys.stdout.flush()
 
         sys.stdout.write('\n')
         sys.stdout.flush()
@@ -484,8 +524,9 @@ class MultiLayerPerceptron( ):
                 
                 # stop training if validation error is growing too much
                 # look at the last 5 errors. if they are all increaing stop training.
-                if np.all( np.diff(err_val_save[n-5:n]) > 0):
-                    break
+                if validation_set:
+                    if np.all( np.diff(err_val_save[n-5:n]) > 0):
+                        break
                     
             else:
                 err_save[n] = err_save[n-1]
