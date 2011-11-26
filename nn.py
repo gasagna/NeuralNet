@@ -148,7 +148,7 @@ class MultiLayerPerceptron( ):
     layer has a bias node. 
     """
 
-    def __init__ ( self, arch, activation_function=tanh, b=0.1, beta=1, n_threads=1 ):
+    def __init__ ( self, arch, activation_function=sigmoid, b=0.1, beta=1, n_threads=1 ):
         """Create a neural network.
         
         Parameters
