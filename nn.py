@@ -78,6 +78,48 @@ class Dataset( object ):
         # length of the dataset, number of samples
         self.n_samples = self.inputs.shape[0]
         
+    def split( self, fractions=[0.5, 0.5]):
+        """Split randomly the dataset into smaller dataset.
+        
+        Parameters
+        ----------
+        fraction: list of floats, default = [0.5, 0.5]
+            the dataset is split into ``len(fraction)`` smaller
+            dataset, and the ``i``-th dataset has a size
+            which is ``fraction[i]`` of the original dataset.
+            Note that ``sum(fraction)`` can also be smaller than one
+            but not greater.
+            
+        Returns
+        -------
+        subsets: list of :py:class:`nn.Dataset`
+            a list of the subsets of the original datasets
+        """
+        
+
+
+        if sum(fractions) > 1.0 or sum(fractions) <= 0:
+            raise ValueError( "the sum of fractions argument should be between 0 and 1" )
+        
+        # random indices
+        idx = np.arange(self.n_samples)
+        np.random.shuffle(idx)
+        
+        # insert zero
+        fractions.insert(0, 0)
+        
+        # gte limits of the subsets
+        limits = (np.cumsum(fractions)*self.n_samples ).astype(np.int32)
+                
+        subsets = []
+        # create output dataset
+        for i in range(len(fractions)-1):
+            subsets.append( Dataset(self.inputs[idx[limits[i]:limits[i+1]]], self.targets[idx[limits[i]:limits[i+1]]]) )
+        
+        return subsets
+
+    def __len__(self):
+        return len( self.inputs )
 
 class MultiLayerPerceptron( ):
     """A Multi Layer Perceptron feed-forward neural network.
