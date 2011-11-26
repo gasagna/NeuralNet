@@ -56,6 +56,28 @@ def sigmoid(x, beta=1):
 def load_net_from_file( filename ):
         """Load net from a file."""
         return pickle.load(open(filename, 'r'))
+        
+        
+class Dataset( object ):
+    def __init__ ( self, inputs, targets ):
+        
+        #Check that the dataset is consistent
+        if not inputs.ndim == 2:
+            raise ValueError( 'inputs should be a two dimensions array.' )
+            
+        if not targets.ndim == 2:
+            raise ValueError( 'targets should be a two dimensions array.' )
+            
+        if inputs.shape[0] != targets.shape[0]:
+            raise ValueError( 'the length of the inputs is not consistent with length of the targets.' )
+        
+        # set attributes
+        self.inputs = inputs
+        self.targets = targets
+        
+        # length of the dataset, number of samples
+        self.n_samples = self.inputs.shape[0]
+        
 
 class MultiLayerPerceptron( ):
     """A Multi Layer Perceptron feed-forward neural network.
@@ -63,11 +85,10 @@ class MultiLayerPerceptron( ):
     This class implements a multi layer feed-forward neural 
     network with hidden sigmoidal units and linear output 
     units. Multiple hidden layers can be defined and each 
-    layer has a bias node. The network is trained using 
-    the Back-Propagation algorithm.
+    layer has a bias node. 
     """
 
-    def __init__ ( self, arch, eta=0.5, b=0.1, beta=1, n_threads=1 ):
+    def __init__ ( self, arch, b=0.1, beta=1, n_threads=1 ):
         """Create a neural network.
         
         Parameters
@@ -76,15 +97,16 @@ class MultiLayerPerceptron( ):
             a list containing the number of neurons in each layer
             including the input and output layers.
             
-        eta : float, default=0.5
-            the initial learning rate used in the training of the network
-            
         b : float, default = 0.1
             left/right limits of the uniform distribution from which 
             the intial values of the network weights are sampled.
 
         beta : float, default = 1
             steepness of the sigmoidal function in ``x=0``
+            
+        n_threads : int
+            the number of threads to use when computing some expression
+            with numexpr, if it is available on the system.
             
         Attributes
         ----------
@@ -136,11 +158,13 @@ class MultiLayerPerceptron( ):
         >>> net.forward( y )
         
         """
-        # the architecture of the network. 
+        # set attributes
         self.arch = arch
         self.beta = beta
         self.n_layers = len(arch)
         self.n_hidden = len(arch) - 2
+        
+        # set number of threads
         ne.set_num_threads(n_threads)
         
         # a list of arrays containing the weight of each layer
@@ -154,15 +178,60 @@ class MultiLayerPerceptron( ):
             self.weights.append( np.random.uniform(-b, b, size) )
 
     def save( self, filename ):
-        """Save net to a file."""
+        """Save net to a file. The standard library cPickle module
+        is used to store the network.
+        
+        Parameters
+        ----------
+        filename : str
+            the file name to which to save the network.
+        """
         clone = copy.copy( self )
         del clone._hidden
         pickle.dump( clone, open(filename, 'w') )
 
-    def forward ( self, inputs ):
-        """Compute network output.
+    def _forward_train ( self, dataset ):
+        """Compute network output. This method is used only for training
+        the network and should prefereably not be used after training. 
+        This methods does bookkeeping of the activation values of the nodes,
+        so that backprogation can work.
         
-        After the training the network can be used on new data.
+
+        Parameters
+        ----------
+        inputs  :   np.ndarray
+            must be a two dimensions array with shape equal to 
+            ``(n_samples, net.arch[0])``.
+        
+        Returns
+        ------- 
+        output : np.ndarray
+            a two dimensions array with shape ``(n_samples, net.arch[-1])``
+        """
+        
+        # check shape of the data
+        self._check_dataset( dataset )
+        
+        # add biases values 
+        hidden = _myhstack( dataset.inputs, -np.ones((dataset.n_samples,1)) )
+
+        # keep track of the forward operations
+        self._hidden = [ hidden ]
+       
+        # for each layer except the output, compute activation
+        #  adding the biases as necessary
+        for i in xrange( self.n_layers - 2 ):
+            hidden = np.dot( hidden, self.weights[i] )
+            hidden = sigmoid( hidden, self.beta )
+            hidden = _myhstack( hidden, -np.ones( (hidden.shape[0],1) ) )
+            
+            self._hidden.append( hidden )
+            
+        # compute output
+        return np.dot( hidden, self.weights[-1] )
+        
+    def forward ( self, dataset ):
+        """Compute network output.
         
         Parameters
         ----------
@@ -177,22 +246,17 @@ class MultiLayerPerceptron( ):
         """
         
         # check shape of the data
-        self._check_inputs( inputs )
+        self._check_dataset( dataset )
         
         # add biases values 
-        hidden = _myhstack( inputs, -np.ones((inputs.shape[0],1)) )
-
-        # keep track of the forward operations
-        self._hidden = [ hidden ]
-       
+        hidden = _myhstack( dataset.inputs, -np.ones((dataset.n_samples,1)) )
+      
         # for each layer except the output, compute activation
         #  adding the biases as necessary
         for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
             hidden = sigmoid( hidden, self.beta )
             hidden = _myhstack( hidden, -np.ones( (hidden.shape[0],1) ) )
-            
-            self._hidden.append( hidden )
             
         # compute output
         return np.dot( hidden, self.weights[-1] )
@@ -252,7 +316,7 @@ class MultiLayerPerceptron( ):
         for n in xrange( 1, n_iterations+1 ):
 
             # compute output                
-            o = self.forward( inputs )
+            o = self._forward_train( inputs )
 
             # compute output delta term
             deltas[-1] = ( o - targets )
@@ -291,7 +355,7 @@ class MultiLayerPerceptron( ):
                
         return err_save
 
-    def train_quickprop ( self, inputs, targets, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1  ):
+    def train_quickprop ( self, training_set, validation_set=None, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1 ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -299,13 +363,12 @@ class MultiLayerPerceptron( ):
                 
         Parameters
         ----------
-        inputs  :   np.ndarray
-            the input data of the training set. Must be a two dimensions array 
-            with shape equal to ``(n_samples, net.arch[0])``.
-        
-        targets  :   np.ndarray
-            the target data of the training set. Must be a two dimensions array
-            with shape equal to ``(n_samples, net.arch[-1])``.        
+        training_set : instance of :py:class:`nn.Dataset` class
+            the set of inputs/targets used to train the network
+                
+        validation_set : instance of :py:class:`nn.Dataset` class
+            the set of inputs/targets used to  validate the network training.
+            If it is None, no validation is performed.
 
         n_iterations : int, default=100
             the number of epochs of the training. All the input samples
@@ -327,15 +390,21 @@ class MultiLayerPerceptron( ):
         """
         
         # check shape of the data
-        self._check_inputs( inputs )
-        self._check_targets( targets )
-
+        self._check_dataset( training_set )
+        if validation_set:
+            self._check_dataset( validation_set )
+        
         # initialize deltas list        
         deltas = [ None ] * ( self.n_layers - 1 )
         
         # save errors at each iteration to plot convergence history
         err_save = np.zeros( n_iterations+1 )
-        err_save[0] = self.error( inputs, targets )
+        err_save[0] = self.error( training_set )
+        
+        # save also error over the validation set, if needed
+        if validation_set:
+            err_val_save = np.zeros( n_iterations+1 )
+            err_val_save[0] = self.error( validation_set )
 
         # initialize weights at previous step
         d_weights_old = [ np.zeros_like(w) for w in self.weights ]
@@ -345,10 +414,10 @@ class MultiLayerPerceptron( ):
         for n in xrange( 1, n_iterations+1 ):
 
             # compute output                
-            o = self.forward( inputs )
+            o = self._forward_train( training_set )
 
             # compute output delta term
-            deltas[-1] = ( o - targets )
+            deltas[-1] = ( o - training_set.targets )
 
             # calculate deltas, for each hidden unit
             for i in xrange( self.n_hidden ): 
@@ -360,7 +429,7 @@ class MultiLayerPerceptron( ):
 
             for i in xrange( self.n_layers - 1 ):
                 # compute error derivative 
-                S = np.dot( deltas[i].T, self._hidden[i] ).T / inputs.shape[0]
+                S = np.dot( deltas[i].T, self._hidden[i] ).T / training_set.n_samples
 
                 if n < 2:
                     # perform conventional backpropagation at first interation to ignite quick propagation algorithm
@@ -384,43 +453,66 @@ class MultiLayerPerceptron( ):
             # debug message
             if n % epochs_between_reports == 0 and n >= epochs_between_reports :
                 # compute error
-                err_save[n] = self.error( inputs, targets )
+                err_save[n] = self.error( training_set )
+                if validation_set:
+                    err_val_save[n] = self.error( validation_set )
+                
+                # compute if error is growing or decreasing
+                if err_save[n] >  err_save[n-1]:
+                    err_tr_sign = '(+)'
+                elif err_save[n] <= err_save[n-1]:
+                    err_tr_sign = '(-)'
+                if validation_set:
+                    if err_val_save[n]  > err_val_save[n-1]:
+                        err_val_sign = '(+)'
+                    elif err_val_save[n] <= err_val_save[n-1]:
+                        err_val_sign = '(-)'
+                
                 # print state information
-                sys.stdout.write( '\b'*55 )
-                sys.stdout.write( "Epoch %5d - MSE = %6.6e" % (n, err_save[n]) )
+                if validation_set:
+                    sys.stdout.write( '\b'*68 )
+                    sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s; MSE-val = %6.6e%s" % (n, err_save[n], err_tr_sign, err_val_save[n], err_val_sign) )
+                else:
+                    sys.stdout.write( '\b'*68 )
+                    sys.stdout.write( "Epoch %5d; MSE-tr = %6.6e%s" % (n, err_save[n], err_tr_sign) )
                 sys.stdout.flush()
                 
                 # break if we are close to the minimum
                 if np.abs(err_save[n] - err_save[n-1]) < etol:
                     print "Minimum variation of error reached. Stopping training."
                     break
+                
+                # stop training if validation error is growing too much
+                # look at the last 5 errors. if they are all increaing stop training.
+                if np.all( np.diff(err_val_save[n-5:n]) > 0):
+                    break
+                    
             else:
                 err_save[n] = err_save[n-1]
+                if validation_set:
+                    err_val_save[n] = err_val_save[n-1]
             
-                       
-
         sys.stdout.write('\n')
         sys.stdout.flush()
                 
-        return err_save
+        if validation_set:
+            return err_save, err_val_save
+        else:
+            return err_save
 
-    def _check_inputs( self, inputs ):
-        """Check that the shape (dimensionality) of the inputs
-        is correct with respect to the   network architecture."""
-        if not inputs.ndim == 2:
-            raise ValueError( 'inputs should be a two dimensions array.' )
-        if inputs.shape[1] != self.arch[0]:
-            raise ValueError( 'inputs shape is inconsistent with number of input nodes.' )
+    def _check_dataset( self, dataset ):
+        """Check that the dataset is consistent with respect 
+        to the  network architecture."""
+        if not isinstance( dataset, Dataset ):
+            raise ValueError( 'wrong training_set or validation_set are not instances of the nn.Dataset class' )
+            
+        if dataset.inputs.shape[1] != self.arch[0]:
+            raise ValueError( 'dataset inputs shape is inconsistent with number of network input nodes.' )
+        
+        if dataset.targets.shape[1] != self.arch[-1]:
+            raise ValueError( 'dataset targets shape is inconsistent with number of network output nodes.' )
 
-    def _check_targets( self, targets ):
-        """Check that the shape (dimensionality) of the targets
-        is correct with respect to the   network architecture."""
-        if not targets.ndim == 2:
-            raise ValueError( 'inputs should be a two dimensions array.' )
-        if targets.shape[1] != self.arch[-1]:
-            raise ValueError( 'targets shape is inconsistent with number of output nodes.' )
-
-    def error( self, inputs, targets ):
+    def error( self, dataset ):
         """Compute the sum of squared error of the network.
         
         The error of a network with :math:`n` output units, when
@@ -431,17 +523,11 @@ class MultiLayerPerceptron( ):
         
         Parameters
         ----------
-        inputs  :   np.ndarray
-            the input data of the training set. Must be a two dimensions array 
-            with shape equal to ``(n_samples, net.arch[0])``.
-        
-        targets  :   np.ndarray
-            the target data of the training set. Must be a two dimensions array
-            with shape equal to ``(n_samples, net.arch[0])``.       
+        dataset : instance of :py:class:`nn.Dataset`
         
         Returns
         -------
         e : float 
-            the error of the network
+            the mean square error of the network
         """
-        return np.mean( (self.forward( inputs ) - targets)**2 )
+        return np.mean( (self.forward( dataset ) - dataset.targets)**2 )
