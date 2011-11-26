@@ -23,8 +23,9 @@ import numexpr as ne
 import copy
 import sys
 
-def _myhstack(a,b):
+def _myhstack( arrs ):
     """Stack two arrays side by side"""
+    a, b = arrs
     c = np.empty( (a.shape[0], a.shape[1]+b.shape[1]) )
     c[:,:a.shape[1]] = a
     c[:,a.shape[1]:] = b
@@ -44,14 +45,31 @@ def sigmoid(x, beta=1):
     x : float
     
     beta : float, default=1
-      a parameter determining the steepness of the curve in :math:`x=0`
+        a parameter determining the steepness of the curve in :math:`x=0`
       
     Returns
     -------
     s : float
-      the value of the sigmoid activation function
+        the value of the activation function
     """
     return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
+
+def tanh( x, beta=1 ):
+    """Hyperbolic tangent activation function
+    
+    Parameters
+    ----------
+    x : float
+    
+    beta : float, default=1
+        a parameter determining the steepness of the curve in :math:`x=0`
+      
+    Returns
+    -------
+    s : float
+        the value of the activation function
+    """
+    return ne.evaluate( "tanh(beta*x)" )
 
 def load_net_from_file( filename ):
         """Load net from a file."""
@@ -130,7 +148,7 @@ class MultiLayerPerceptron( ):
     layer has a bias node. 
     """
 
-    def __init__ ( self, arch, b=0.1, beta=1, n_threads=1 ):
+    def __init__ ( self, arch, activation_function=tanh, b=0.1, beta=1, n_threads=1 ):
         """Create a neural network.
         
         Parameters
@@ -205,6 +223,7 @@ class MultiLayerPerceptron( ):
         self.beta = beta
         self.n_layers = len(arch)
         self.n_hidden = len(arch) - 2
+        self.activation_function = activation_function
         
         # set number of threads
         ne.set_num_threads(n_threads)
@@ -255,7 +274,7 @@ class MultiLayerPerceptron( ):
         self._check_dataset( dataset )
         
         # add biases values 
-        hidden = _myhstack( dataset.inputs, -np.ones((dataset.n_samples,1)) )
+        hidden = _myhstack( (dataset.inputs, -np.ones((dataset.n_samples,1))) )
 
         # keep track of the forward operations
         self._hidden = [ hidden ]
@@ -264,8 +283,8 @@ class MultiLayerPerceptron( ):
         #  adding the biases as necessary
         for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
-            hidden = sigmoid( hidden, self.beta )
-            hidden = _myhstack( hidden, -np.ones( (hidden.shape[0],1) ) )
+            hidden = self.activation_function( hidden, self.beta )
+            hidden = _myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
             
             self._hidden.append( hidden )
             
@@ -291,14 +310,14 @@ class MultiLayerPerceptron( ):
         self._check_dataset( dataset )
         
         # add biases values 
-        hidden = _myhstack( dataset.inputs, -np.ones((dataset.n_samples,1)) )
+        hidden = _myhstack( (dataset.inputs, -np.ones((dataset.n_samples,1))) )
       
         # for each layer except the output, compute activation
         #  adding the biases as necessary
         for i in xrange( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
-            hidden = sigmoid( hidden, self.beta )
-            hidden = _myhstack( hidden, -np.ones( (hidden.shape[0],1) ) )
+            hidden = self.activation_function( hidden, self.beta )
+            hidden = _myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
             
         # compute output
         return np.dot( hidden, self.weights[-1] )
@@ -424,9 +443,9 @@ class MultiLayerPerceptron( ):
             # stop training if training error is decreasing too much
             # with respect to the validation error
             if validation_set:
-                if n > 15:
+                if n > 1 :
                     # ratio  between errors of the two sets
-                    err_ratio = np.max( err_save[n-15:n]/err_val_save[n-15:n] )
+                    err_ratio = np.max( err_save[n-1:n]/err_val_save[n-1:n] )
                     if err_ratio < max_ratio:
                         sys.stdout.write("\nStopping training to avoid overfitting\n")
                         sys.stdout.flush()
@@ -570,9 +589,9 @@ class MultiLayerPerceptron( ):
                 # stop training if training error is decreasing too much
                 # with respect to the validation error
                 if validation_set:
-                    if n > 15:
+                    if n > 1:
                         # ratio  between errors of the two sets
-                        err_ratio = np.max( err_save[n-15:n]/err_val_save[n-15:n] )
+                        err_ratio = np.max( err_save[n-1:n]/err_val_save[n-1:n] )
                         if err_ratio < max_ratio:
                             sys.stdout.write("\nStopping training to avoid overfitting\n")
                             sys.stdout.flush()
@@ -638,4 +657,4 @@ class MultiLayerPerceptron( ):
         e : float 
             the mean square error of the network
         """
-        return np.mean( (self.forward( dataset ) - dataset.targets)**2 )
+        return np.mean( (self.forward(dataset)- dataset.targets)**2)
