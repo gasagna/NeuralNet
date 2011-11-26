@@ -69,7 +69,7 @@ def tanh( x, beta=1 ):
     s : float
         the value of the activation function
     """
-    return ne.evaluate( "tanh(beta*x)" )
+    return ne.evaluate( "tanh(-beta*x)" )
 
 def load_net_from_file( filename ):
         """Load net from a file."""
@@ -657,4 +657,4 @@ class MultiLayerPerceptron( ):
         e : float 
             the mean square error of the network
         """
-        return np.mean( (self.forward(dataset)- dataset.targets)**2)
+        return np.mean( (self.forward(dataset)-dataset.targets)**2 )
