@@ -467,7 +467,7 @@ class MultiLayerPerceptron( ):
                
         return err_save
 
-    def train_quickprop ( self, training_set, validation_set=None, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1, max_ratio=0.9 ):
+    def train_quickprop ( self, training_set, validation_set=None, n_iterations=100, mu=1.5, etol=1e-6, epochs_between_reports=1, max_ratio=0.9, n_before=5 ):
         """Train the network using the quickprop algorithm.
         
         Training is performed in batch mode, i.e. all input samples are presented 
@@ -589,10 +589,15 @@ class MultiLayerPerceptron( ):
                 # stop training if training error is decreasing too much
                 # with respect to the validation error
                 if validation_set:
-                    if n > 1:
+                    err_ratio = err_save[n]/err_val_save[n]
+                    if n > n_before*epochs_between_reports:
                         # ratio  between errors of the two sets
-                        err_ratio = np.max( err_save[n-1:n]/err_val_save[n-1:n] )
-                        if err_ratio < max_ratio:
+                        #if err_ratio < max_ratio:
+                            #sys.stdout.write("\nStopping training to avoid overfitting\n")
+                            #sys.stdout.flush()
+                            #break
+                        #err_ratio = np.max( err_save[n-1:n]/err_val_save[n-1:n] )
+                        if np.all( np.diff(err_val_save[n-n_before*epochs_between_reports:n]) >= 0 ):
                             sys.stdout.write("\nStopping training to avoid overfitting\n")
                             sys.stdout.flush()
                             break
