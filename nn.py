@@ -74,8 +74,7 @@ def tanh( x, beta=1 ):
 def load_net_from_file( filename ):
         """Load net from a file."""
         return pickle.load(open(filename, 'r'))
-        
-        
+
 class Dataset( object ):
     def __init__ ( self, inputs, targets ):
         
@@ -592,10 +591,10 @@ class MultiLayerPerceptron( ):
                     err_ratio = err_save[n]/err_val_save[n]
                     if n > n_before*epochs_between_reports:
                         # ratio  between errors of the two sets
-                        #if err_ratio < max_ratio:
-                            #sys.stdout.write("\nStopping training to avoid overfitting\n")
-                            #sys.stdout.flush()
-                            #break
+                        if err_ratio < max_ratio:
+                            sys.stdout.write("\nStopping training to avoid overfitting\n")
+                            sys.stdout.flush()
+                            break
                         #err_ratio = np.max( err_save[n-1:n]/err_val_save[n-1:n] )
                         if np.all( np.diff(err_val_save[n-n_before*epochs_between_reports:n]) >= 0 ):
                             sys.stdout.write("\nStopping training to avoid overfitting\n")
@@ -628,9 +627,9 @@ class MultiLayerPerceptron( ):
         sys.stdout.flush()
                 
         if validation_set:
-            return err_save, err_val_save
+            return err_save[:n], err_val_save[:n]
         else:
-            return err_save
+            return err_save[:n]
 
     def _check_dataset( self, dataset ):
         """Check that the dataset is consistent with respect 
