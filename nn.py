@@ -28,40 +28,6 @@ except ImportError:
     numexpr = None
 
 
-def _myhstack( arrs ):
-    """Stack two arrays side by side"""
-    a, b = arrs
-    c = np.empty( (a.shape[0], a.shape[1]+b.shape[1]) )
-    c[:,:a.shape[1]] = a
-    c[:,a.shape[1]:] = b
-    return c
-
-def sigmoid(x, beta=1):
-    """Sigmoid activation function.
-
-    The sigmoid activation function :math:`\\sigma(x)`  is defined as:
-
-    .. math::
-       \\sigma(x) = \\frac{1}{ 1+ \\exp( -\\beta x )}
-
-    Parameters
-    ----------
-
-    x : float
-
-    beta : float, default=1
-        a parameter determining the steepness of the curve in :math:`x=0`
-
-    Returns
-    -------
-    s : float
-        the value of the activation function
-    """
-    if numexpr:
-        return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
-    else:
-        return 1.0 / ( 1 + np.exp(-beta*x))
-
 class Dataset( object ):
     def __init__ ( self, inputs, targets ):
 
@@ -124,6 +90,7 @@ class Dataset( object ):
 
     def __len__(self):
         return len( self.inputs )
+
 
 class MultiLayerPerceptron( ):
     """A Multi Layer Perceptron feed-forward neural network.
@@ -209,6 +176,7 @@ class MultiLayerPerceptron( ):
         self.beta = beta
         self.n_layers = len(arch)
         self.n_hidden = len(arch) - 2
+        self._hidden = None
 
         # set number of threads
         if numexpr:
@@ -235,7 +203,7 @@ class MultiLayerPerceptron( ):
         """
         clone = copy.copy( self )
         del clone._hidden
-        pickle.dump( clone, open(filename, 'w') )
+        pickle.dump( clone, open(filename, 'wb') )
 
     def _forward_train ( self, dataset ):
         """Compute network output. This method is used only for training
@@ -269,8 +237,8 @@ class MultiLayerPerceptron( ):
         #  adding the biases as necessary
         for i in range( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
-            hidden = sigmoid( hidden, self.beta )
-            hidden = _myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
+            hidden = self._sigmoid( hidden, self.beta )
+            hidden = self._myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
 
             self._hidden.append( hidden )
 
@@ -647,7 +615,43 @@ class MultiLayerPerceptron( ):
         """
         return np.mean( (self.forward(dataset)-dataset.targets)**2 )
 
-    @classmethod
-    def load_net_from_file( cls, filename ):
-        """Load net from a file."""
-        return pickle.load( open(filename, 'r') )
+    @staticmethod
+    def _myhstack( arrs ):
+        """Stack two arrays side by side"""
+        a, b = arrs
+        c = np.empty( (a.shape[0], a.shape[1]+b.shape[1]) )
+        c[:,:a.shape[1]] = a
+        c[:,a.shape[1]:] = b
+        return c
+    
+    @staticmethod
+    def _sigmoid(x, beta=1):
+        """Sigmoid activation function.
+    
+        The sigmoid activation function :math:`\\sigma(x)`  is defined as:
+    
+        .. math::
+           \\sigma(x) = \\frac{1}{ 1+ \\exp( -\\beta x )}
+    
+        Parameters
+        ----------
+    
+        x : float
+    
+        beta : float, default=1
+            a parameter determining the steepness of the curve in :math:`x=0`
+    
+        Returns
+        -------
+        s : float
+            the value of the activation function
+        """
+        if numexpr:
+            return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
+        else:
+            return 1.0 / ( 1 + np.exp(-beta*x))
+    
+
+def load_net_from_file( filename ):
+    """Load net from a file."""
+    return pickle.load( open(filename, 'rb') )
