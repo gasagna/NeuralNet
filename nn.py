@@ -17,11 +17,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import pickle as pickle
+import copy, sys
+
 import numpy as np
-import cPickle as pickle
-import numexpr as ne
-import copy
-import sys
+
+try:
+    import numexpr as ne
+except ImportError:
+    numexpr = None
+
 
 def _myhstack( arrs ):
     """Stack two arrays side by side"""
@@ -52,28 +57,10 @@ def sigmoid(x, beta=1):
     s : float
         the value of the activation function
     """
-    return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
-
-def tanh( x, beta=1 ):
-    """Hyperbolic tangent activation function
-
-    Parameters
-    ----------
-    x : float
-
-    beta : float, default=1
-        a parameter determining the steepness of the curve in :math:`x=0`
-
-    Returns
-    -------
-    s : float
-        the value of the activation function
-    """
-    return ne.evaluate( "tanh(-beta*x)" )
-
-def load_net_from_file( filename ):
-        """Load net from a file."""
-        return pickle.load(open(filename, 'r'))
+    if numexpr:
+        return ne.evaluate( "1.0 / ( 1 + exp(-beta*x))" )
+    else:
+        return 1.0 / ( 1 + np.exp(-beta*x))
 
 class Dataset( object ):
     def __init__ ( self, inputs, targets ):
@@ -224,7 +211,8 @@ class MultiLayerPerceptron( ):
         self.n_hidden = len(arch) - 2
 
         # set number of threads
-        ne.set_num_threads(n_threads)
+        if numexpr:
+            ne.set_num_threads(n_threads)
 
         # a list of arrays containing the weight of each layer
         # e.g. if arch = [ 2, 5, 1 ] then
@@ -232,7 +220,7 @@ class MultiLayerPerceptron( ):
         self.weights = [ ]
 
         # init the weigths to small values
-        for i in xrange( self.n_layers - 1 ):
+        for i in range( self.n_layers - 1 ):
             size = arch[i] + 1 , arch[i+1]
             self.weights.append( np.random.uniform(-b, b, size) )
 
@@ -279,7 +267,7 @@ class MultiLayerPerceptron( ):
 
         # for each layer except the output, compute activation
         #  adding the biases as necessary
-        for i in xrange( self.n_layers - 2 ):
+        for i in range( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
             hidden = sigmoid( hidden, self.beta )
             hidden = _myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
@@ -312,7 +300,7 @@ class MultiLayerPerceptron( ):
 
         # for each layer except the output, compute activation
         #  adding the biases as necessary
-        for i in xrange( self.n_layers - 2 ):
+        for i in range( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
             hidden = sigmoid( hidden, self.beta )
             hidden = _myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
@@ -392,7 +380,7 @@ class MultiLayerPerceptron( ):
         d_weights_old = [ np.zeros_like(w) for w in self.weights ]
 
         # repeat the training
-        for n in xrange( 1, n_iterations+1 ):
+        for n in range( 1, n_iterations+1 ):
 
             # compute output
             o = self._forward_train( training_set )
@@ -401,13 +389,13 @@ class MultiLayerPerceptron( ):
             deltas[-1] = ( o - training_set.targets )
 
             # calculate deltas, for each hidden unit
-            for i in xrange( self.n_hidden ):
+            for i in range( self.n_hidden ):
             # j is an index which go backwards
                 j = -( i+1 )
                 deltas[ j-1 ] = self._hidden[j][:,:-1] * ( 1.0 - self._hidden[j][:,:-1] ) *  np.dot( deltas[j], self.weights[j][:-1].T )
 
             # update weights
-            for i in xrange( self.n_layers - 1 ):
+            for i in range( self.n_layers - 1 ):
                 d_weights_old[i] = alpha*d_weights_old[i] + eta * np.dot( deltas[i].T, self._hidden[i] ).T / training_set.n_samples
                 self.weights[i] -= d_weights_old[i]
 
@@ -418,7 +406,7 @@ class MultiLayerPerceptron( ):
 
             # break if we are close to the minimum
             if np.abs(err_save[n] - err_save[n-1]) < etol:
-                print "Minimum variation of error reached. Stopping training."
+                print("Minimum variation of error reached. Stopping training.")
                 break
 
             # check error behaviour and change learning parameter
@@ -526,7 +514,7 @@ class MultiLayerPerceptron( ):
         S_old = [ np.zeros_like(w) for w in self.weights ]
 
         # repeat the training for a certain amount of epochs
-        for n in xrange( 1, n_iterations+1 ):
+        for n in range( 1, n_iterations+1 ):
 
             # compute output
             o = self._forward_train( training_set )
@@ -535,14 +523,14 @@ class MultiLayerPerceptron( ):
             deltas[-1] = ( o - training_set.targets )
 
             # calculate deltas, for each hidden unit
-            for i in xrange( self.n_hidden ):
+            for i in range( self.n_hidden ):
                 # j is an index which goes backwards
                 j = -( i+1 )
                 a = self._hidden[j][:,:-1]
                 b = np.dot( deltas[j], self.weights[j][:-1].T )
                 deltas[ j-1 ] = a*(1-a)*b
 
-            for i in xrange( self.n_layers - 1 ):
+            for i in range( self.n_layers - 1 ):
                 # compute error derivative
                 S = np.dot( deltas[i].T, self._hidden[i] ).T / training_set.n_samples
 
@@ -565,15 +553,15 @@ class MultiLayerPerceptron( ):
                 d_weights_old[i] = d_weights
 
 
-            # debug message
+            # if we have to make a report
             if n % epochs_between_reports == 0 and n >= epochs_between_reports :
 
-                # compute error
+                # compute error on the training set and on the validation set if available.
                 err_save[n] = self.error( training_set )
                 if validation_set:
                     err_val_save[n] = self.error( validation_set )
 
-                # compute if error is growing or decreasing
+                # compute if errors on the set are growing or decreasing
                 if err_save[n] >  err_save[n-1]:
                     err_tr_sign = '(+)'
                 elif err_save[n] <= err_save[n-1]:
@@ -591,16 +579,13 @@ class MultiLayerPerceptron( ):
                     if n > n_before*epochs_between_reports:
                         # ratio  between errors of the two sets
                         if err_ratio < max_ratio:
-                            sys.stdout.write("\nStopping training to avoid overfitting\n")
+                            sys.stdout.write("\nMaximum error ratio reached. Stopping training to avoid overfitting\n")
                             sys.stdout.flush()
                             break
-                        #err_ratio = np.max( err_save[n-1:n]/err_val_save[n-1:n] )
                         if np.all( np.diff(err_val_save[n-n_before*epochs_between_reports:n]) >= 0 ):
-                            sys.stdout.write("\nStopping training to avoid overfitting\n")
+                            sys.stdout.write("\nError on validation set has increased in the last %d epochs. Stopping training to avoid overfitting\n" % n_before)
                             sys.stdout.flush()
                             break
-                    else:
-                        err_ratio = 1
 
                 # print state information
                 if validation_set:
@@ -613,7 +598,7 @@ class MultiLayerPerceptron( ):
 
                 # break if we are close to the minimum
                 if np.abs(err_save[n] - err_save[n-1]) < etol:
-                    print "Minimum variation of error reached. Stopping training."
+                    print("Minimum variation of error reached. Stopping training.")
                     break
 
 
@@ -661,3 +646,8 @@ class MultiLayerPerceptron( ):
             the mean square error of the network
         """
         return np.mean( (self.forward(dataset)-dataset.targets)**2 )
+
+    @classmethod
+    def load_net_from_file( cls, filename ):
+        """Load net from a file."""
+        return pickle.load( open(filename, 'r') )
