@@ -47,6 +47,7 @@ class Dataset( object ):
 
         # length of the dataset, number of samples
         self.n_samples = self.inputs.shape[0]
+        self.n_inputs = self.inputs.shape[1]
 
     def split( self, fractions=[0.5, 0.5]):
         """Split randomly the dataset into smaller dataset.
@@ -228,7 +229,7 @@ class MultiLayerPerceptron( ):
         self._check_dataset( dataset )
 
         # add biases values
-        hidden = _myhstack( (dataset.inputs, -np.ones((dataset.n_samples,1))) )
+        hidden = self._myhstack( (dataset.inputs, -np.ones((dataset.n_samples,1))) )
 
         # keep track of the forward operations
         self._hidden = [ hidden ]
@@ -264,14 +265,14 @@ class MultiLayerPerceptron( ):
         self._check_dataset( dataset )
 
         # add biases values
-        hidden = _myhstack( (dataset.inputs, -np.ones((dataset.n_samples,1))) )
+        hidden = self._myhstack( (dataset.inputs, -np.ones((dataset.n_samples,1))) )
 
         # for each layer except the output, compute activation
         #  adding the biases as necessary
         for i in range( self.n_layers - 2 ):
             hidden = np.dot( hidden, self.weights[i] )
-            hidden = sigmoid( hidden, self.beta )
-            hidden = _myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
+            hidden = self._sigmoid( hidden, self.beta )
+            hidden = self._myhstack( (hidden, -np.ones( (hidden.shape[0],1) )) )
 
         # compute output
         return np.dot( hidden, self.weights[-1] )
