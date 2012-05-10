@@ -535,6 +535,8 @@ class MultiLayerPerceptron( ):
                     err_tr_sign = '(+)'
                 elif err_save[n] <= err_save[n-1]:
                     err_tr_sign = '(-)'
+                else:
+                    err_tr_sign = '(.)'
                 if validation_set:
                     if err_val_save[n]  > err_val_save[n-1]:
                         err_val_sign = '(+)'
